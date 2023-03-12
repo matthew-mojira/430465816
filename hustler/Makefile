@@ -9,10 +9,18 @@ libs = \
   registers.asm \
   types.asm
 
+racket = \
+	65816.rkt \
+	ast.rkt \
+	compile-ops.rkt \
+	compile-stdin.rkt \
+	compile.rkt \
+	parse.rkt
+
 %.sfc: %.asm $(libs)
 	./$(ASAR) --symbols=wla init.asm $@
 
-%.asm: *.rkt
+%.asm: %.rkt $(racket)
 	cat $< | racket -t compile-stdin.rkt -m > $@
 
 clean:

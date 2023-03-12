@@ -81,7 +81,7 @@ C0:02BA write_byte
 C0:02ED write_byte_ret
 
 [source files]
-0000 3243b660 init.asm
+0000 8fbd7bbe init.asm
 0001 0243477d main.asm
 0002 40f33239 err.asm
 0003 2cecd808 io.asm

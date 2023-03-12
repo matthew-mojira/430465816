@@ -1,2 +1,2 @@
-Fraudster is like fraud, but with a heavy amount of refactoring on the backend
-to make things look nicer. No new features (except pleasantries).
+Hustler is like hustle, but I remade the 65816 library to make it much
+easier/consistent to write the assembly in Racket.
