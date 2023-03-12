@@ -8,7 +8,6 @@
 ;  - Eof:             #b1011
 ;  - Void:            #b1111
 
-
 !int_shift #= 1
 !int_type_mask #= ((1<<!int_shift)-1)
 !int_type_tag #= (0<<(!int_shift-1))

@@ -38,7 +38,7 @@ ORG $00FFB0
     db    $00         ; EXPANSION RAM SIZE
     db    $00         ; SPECIAL VERSION (normally $00)
     db    $00         ; CARTRIDGE SUB-NUMBER (normally $00)
-    db    "CMSC 430 FRAUDSTER   "    ; GAME TITLE (21 Bytes)
+    db    "CMSC 430 HUSTLE      "    ; GAME TITLE (21 Bytes)
           ;|-------------------|;
     db    $31         ; MAP MODE (fastrom, hirom)
     db    $00         ; CARTRIDGE TYPE (ROM only)
@@ -62,14 +62,14 @@ I_RESET:
     CLC         ; clear carry flag
     XCE         ; exchange carry and emulation (this turns off emulation mode)
     ROL !MEMSEL ; rotate left cycle speed designation (3.58MHz => 2.68MHz?)
-                ; Technically this seems to be overwritten by CLEAR_REGISTERS
+                ; Technically this seems to be overwritten by ClearRegs
     JML F_RESET
 F_RESET:
     REP #$30    ; accumulator 16-bit
     LDX #$1FFF
     TXS         ; initialize stack pointer
-    JSL CLEAR_REGISTERS
-    JSL CLEAR_MEMORY
+    JSL ClearRegs
+    JSL ClearMemory
     SEP #$20    ; accumulator 8-bit
     LDA #$C0    ; automatic read of the SNES read the first pair of JoyPads
     STA !WRIO   ; IO Port Write Register
@@ -90,7 +90,7 @@ I_BRK:
     STP         ; SToP the clock
     ;;;
 
-CLEAR_REGISTERS:
+ClearRegs:
     PHP         ; push processor status register
 
     SEP #$20    ; accumulator 8-bit
@@ -182,7 +182,7 @@ CLEAR_REGISTERS:
     PLP
     RTL
 
-CLEAR_MEMORY:
+ClearMemory:
     PHP
     PHB
     ;    this line causes crashes PEA $0000

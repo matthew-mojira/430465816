@@ -15,12 +15,14 @@
     [(Char c) (compile-char c)]
     [(Bool b) (compile-bool b)]
     [(Eof) (compile-eof)]
+    [(Empty) (compile-empty)]
     [(Prim0 p) (compile-prim0 p cenv)]
     [(Prim1 p e) (compile-prim1 p e cenv)]
     [(If e1 e2 e3) (compile-if e1 e2 e3 cenv)]
     [(Begin e1 e2) (compile-begin e1 e2 cenv)]
     [(Let x e1 e2) (compile-let x e1 e2 cenv)]
     [(Var x) (compile-variable x cenv)]
+    [(Prim2Int p e1 e2) (compile-prim2-int p e1 e2 cenv)]
     [(Prim2 p e1 e2) (compile-prim2 p e1 e2 cenv)]))
 
 ;; Integer -> Asm
@@ -34,6 +36,8 @@
   (if b (Lda "!val_true") (Lda "!val_false")))
 (define (compile-eof)
   (Lda "!val_eof"))
+(define (compile-empty)
+  (Lda "!val_empty"))
 
 (define (compile-prim0 p cenv)
   (compile-op0 p))
@@ -78,7 +82,7 @@
   (let ([i (lookup x cenv)]) (sequence (LdaStk (~v i)))))
 
 ;; Op2 Expr Expr CEnv -> Asm
-(define (compile-prim2 p e1 e2 cenv)
+(define (compile-prim2-int p e1 e2 cenv)
   (sequence (compile-e e2 cenv) ; HUGE! expressions evaluated right-to-left
             (assert-integer) ; big note, we're doing this here, as long as
             (Pha) ; our prim2 constructs all expect integers
@@ -86,3 +90,10 @@
             (assert-integer) ; assert arg2 integer
             (compile-op2 p)
             (Ply)))
+
+;; Op2 Expr Expr CEnv -> Asm
+(define (compile-prim2 p e1 e2 cenv)
+  (sequence (compile-e e2 cenv) ; expressions evaluated right-to-left
+            (Pha)
+            (compile-e e1 (cons #f cenv))
+            (compile-op2 p))) ;careful, stack not pulled!

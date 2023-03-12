@@ -8,78 +8,26 @@ main:
     JSL initialize    ; note: this code is only called once here, so it could
                       ; be inlined for efficiency. but not doing it yet
 
+    REP #$10  ; 16-bit XY
+    SEP #$20  ; 8-bit A
+
+    LDA #$7E
+    LDX #$8000
+
+    STA !HEAP+2     ; set up heap pointer
+    STX !HEAP
+    STA !DEREF+2    ; set up dereferencing area
+
     REP #$30  ; 16-bit AXY
 
     ; CALL THE COMPILED CODE!!
 +   JSL entry
 
-    ;; New for Dupe: First we must check the types...
-    BIT.W #%01   ; get just the last bit (0 =int, 1 = bool)
-    BEQ .convert_integer
-    BIT.W #%10  ; get the second-to-last bit
-    BEQ .convert_character
+    ;; PRINT RESULT VALUE
+    LDX.W #$42     ; offset into tilemap kept in registers (sigh...)
 
-    CMP.W #!val_false
-    BEQ .print_false
-    CMP.W #!val_true
-    BEQ .print_true
-    CMP.W #!val_void
-    BEQ .print_void
-    CMP.W #!val_eof
-    BEQ .print_eof
+    JSR print_value
 
-.print_eof:
-    SEP #$20      ; 8-bit A
-    LDA #$85      ; character (EOF)
-    STA !tilemap+$42
-    BRA .done
-
-.print_void:
-    SEP #$20      ; 8-bit A
-    LDA #$84      ; character (V)
-    STA !tilemap+$42
-    BRA .done
-
-.print_false:
-    SEP #$20      ; 8-bit A
-    LDA #$82      ; character (F)
-    STA !tilemap+$42
-    BRA .done
-
-.print_true:
-    SEP #$20      ; 8-bit A
-    LDA #$83      ; character (T)
-    STA !tilemap+$42
-    BRA .done
-
-.convert_character:
-    LSR #!char_shift
-    SEP #$20
-    STA !tilemap+$44
-    BRA .done
-
-.convert_integer:
-    ; Hex2Dec routine
-    ; assuming numbers are unsigned right now...
-    ; and storing them in the tilemap area
-    LSR           ; bit shift right 1 for integers
-    LDX.W #10
-
--   STA !WRDIVL   ; store in dividend
-    SEP #$20      ; 8-bit A
-    LDA #10
-    STA !WRDIVB   ; store in divisor, also starts process
-    NOP #8        ; need to wait 16 cycles
-    LDA !RDMPYL   ; remainder of the division by 10
-    ADC #$30      ; convert to ASCII
-    STA !tilemap+$42,X ; store in digit
-    REP #$20      ; 16-bit A
-    LDA !RDDIVL   ; result of the division
-
-    DEX #2
-    BNE -
-
-.done:
     SEP #$20      ; 8-bit A
 
     LDA #$80
@@ -103,6 +51,164 @@ main:
     PLP
     RTL
 
+; Note to self: in the hustle language we modified this greatly, making the
+; result expression window a true printable area instead of hardcoding types to
+; be printed in this area, except err :(
+
+print_value:
+
+macro deref()
+    ; convert pointer
+    REP #$20      ; 16-bit A
+    STY !DEREF
+    SEC
+    ROR !DEREF
+    LSR !DEREF
+    ASL !DEREF
+    ; dereference
+    LDA [!DEREF]   ; dereference
+endmacro
+
+macro put_tilemap(imm)
+    SEP #$20      ; 8-bit A
+    LDA.B <imm>
+    STA !tilemap,X
+    INX #2
+endmacro
+
+    ; check immediates: get the last 2 bits
+-   BIT.W #%11
+    BEQ .convert_immediate
+
+    TAY
+    AND.W #!ptr_type_mask
+    CMP.W #!box_type_tag
+    BEQ .convert_box
+    CMP.W #!cons_type_tag
+    BEQ .convert_cons
+
+    BRK #$00    ; type error
+
+.convert_box:
+    %put_tilemap(#$87)
+    %deref()
+
+    JMP print_value   ; wow! tail recursion!
+
+.convert_cons:
+    %deref()
+    PHY
+    JSR print_value
+    PLY
+
+    %put_tilemap(#$90)
+
+    INY #2
+    %deref()
+
+    JMP print_value   ; wow! tail recursion!
+
+.convert_immediate:
+    BIT.W #%100
+    BEQ .convert_integer
+
+    CMP.W #!val_false
+    BEQ .print_false
+    CMP.W #!val_true
+    BEQ .print_true
+    CMP.W #!val_void
+    BEQ .print_void
+    CMP.W #!val_eof
+    BEQ .print_eof
+    CMP.W #!val_empty
+    BEQ .print_empty
+
+    BRA .convert_character
+
+    ; TODO invalid character
+
+.print_eof:
+    %put_tilemap(#$85)
+    RTS
+
+.print_void:
+    %put_tilemap(#$84)
+    RTS
+
+.print_false:
+    %put_tilemap(#$82)
+    RTS
+
+.print_true:
+    %put_tilemap(#$83)
+    RTS
+
+.print_empty:
+    %put_tilemap(#$91)
+    RTS
+
+.print_invalid:
+    %put_tilemap(#$81)
+    RTS
+
+.convert_character:
+    LSR #!char_shift    ; the actual character
+    CMP.W #$80
+    BCS .print_invalid
+
+    PHA         ; preseve char
+    %put_tilemap(#$86)
+
+    REP #$20
+    PLA
+    SEP #$20
+    STA !tilemap,X
+    INX #2
+    RTS
+
+.convert_integer:
+    ; Hex2Dec routine
+    ; assuming numbers are unsigned right now...
+    ; and storing them in the tilemap area
+    LSR #!int_shift
+    BEQ .zero
+    LDY.W #10
+
+-   STA !WRDIVL   ; store in dividend
+    SEP #$20      ; 8-bit A
+    LDA #10
+    STA !WRDIVB   ; store in divisor, also starts process
+    NOP #8        ; need to wait 16 cycles
+    LDA !RDMPYL   ; remainder of the division by 10
+    ADC #$30      ; convert to ASCII
+    STA.W $00,Y   ; store in SCRATCH!
+    REP #$20      ; 16-bit A
+    LDA !RDDIVL   ; result of the division
+
+    DEY #2
+    BNE -
+
+    ; move scratch to tilemap
+    LDY.W #0
+    ; get rid of trailing zeros
+-   LDA.W $02,Y
+    CMP.W #$0030
+    BNE +
+    INY #2
+    BRA -
++
+-   LDA.W $02,Y
+    STA !tilemap,X
+    INX #2
+    INY #2
+    CPY.W #$0A
+    BNE -
+
+    RTS
+
+.zero:
+    %put_tilemap(#$30)
+    RTS
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; INITIALIZATION SEQUENCE

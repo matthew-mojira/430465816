@@ -1,0 +1,13 @@
+!ASCII_A = #$41
+!ASCII_C = #$43
+!ASCII_D = #$44
+!ASCII_S = #$53
+!ASCII_X = #$58
+!ASCII_Z = #$5A
+!ASCII_a = #$61
+!ASCII_c = #$63
+!ASCII_d = #$64
+!ASCII_s = #$73
+!ASCII_x = #$78
+!ASCII_z = #$7A
+!ASCII_NEWLINE = #$10
